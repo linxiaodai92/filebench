@@ -183,15 +183,49 @@ fb_lfs_freemem(fb_fdesc_t *fd, off64_t size)
 static int
 fb_lfs_pread(fb_fdesc_t *fd, caddr_t iobuf, fbint_t iosize, off64_t fileoffset)
 {
+	char *fullname = NULL;
+	filebench_log(LOG_INFO,"%s:%d", __FILE__, __LINE__);
+//	fdtofullname(fd->fd_num, fullname);
+//	filebench_log(LOG_INFO,"%s:%d:11 full name %s read to \n", __FILE__, __LINE__,fullname);
 	return (pread64(fd->fd_num, iobuf, iosize, fileoffset));
 }
 
 /*
  * Does a posix read. Returns what the read() returns.
- */
+
+
+void fdtofullname(int fd, char* filename)
+{
+char proclnk[0xFFF];
+//char filename[0xFFF];
+
+    int fno;
+    ssize_t r;
+
+fno = fd;
+
+ sprintf(proclnk, "/proc/self/fd/%d", fno);
+        r = readlink(proclnk, filename, 0xFFF);
+        if (r < 0)
+        {
+            filebench_log(LOG_INFO,"%s:%d:%d: failed to readlink\n", __FILE__, __LINE__,fno);
+            exit(1);
+        }
+        filename[r] = '\0';
+        filebench_log(LOG_INFO,"### fno -> filename: %d -> %s\n\n",
+                fno, filename);
+free(proclnk);
+
+//return filename;
+
+}
+*/
 static int
 fb_lfs_read(fb_fdesc_t *fd, caddr_t iobuf, fbint_t iosize)
 {
+	char *fullname = NULL;
+//	fdtofullname(fd->fd_num, fullname);
+//	filebench_log(LOG_INFO,"%s:%d: full name %s read to \n", __FILE__, __LINE__,fullname);
 	return (read(fd->fd_num, iobuf, iosize));
 }
 

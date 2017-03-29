@@ -357,6 +357,7 @@ flowoplib_filesetup(threadflow_t *threadflow, flowop_t *flowop,
 	if (fd == -1)
 		return (FILEBENCH_ERROR);
 
+
 	/* check for conflicting fdnumber and file name */
 	if ((fd > 0) && (threadflow->tf_fse[fd] != NULL)) {
 		char *fd_based_name;
@@ -387,6 +388,9 @@ flowoplib_filesetup(threadflow_t *threadflow, flowop_t *flowop,
 			return (ret);
 
 		if (threadflow->tf_fse[fd]) {
+			filebench_log(LOG_INFO, "opened file %s",
+			    threadflow->tf_fse[fd]->fse_path);
+
 			filebench_log(LOG_DEBUG_IMPL, "opened file %s",
 			    threadflow->tf_fse[fd]->fse_path);
 		} else {
@@ -394,21 +398,55 @@ flowoplib_filesetup(threadflow_t *threadflow, flowop_t *flowop,
 			    "opened device %s/%s",
 			    avd_get_str(flowop->fo_fileset->fs_path),
 			    avd_get_str(flowop->fo_fileset->fs_name));
+			filebench_log(LOG_INFO, "liine 401Accessed file %s, file name: %s",
+			    flowop->fo_fileset->fs_path,flowop->fo_fileset->fs_name);
 		}
 	}
 
 	*fdescp = &(threadflow->tf_fd[fd]);
 
 	if ((*wssp = flowop->fo_constwss) == 0) {
-		if (threadflow->tf_fse[fd])
+		if (threadflow->tf_fse[fd]){
 			*wssp = threadflow->tf_fse[fd]->fse_size;
-		else
+			char *s = fileset_resolvepath(threadflow->tf_fse[fd]);
+			filebench_log(LOG_INFO, "line 412 Accessed file %s,file path:%s",
+			    threadflow->tf_fse[fd]->fse_path,s);
+		}
+		else{
 			*wssp = avd_get_int(flowop->fo_fileset->fs_size);
+			char *s = fileset_resolvepath(flowop->fo_fileset);
+			filebench_log(LOG_INFO, "line 418 Accessed file %s,file path:%s",
+			    flowop->fo_fileset->fs_path);
+		}
 	}
 
 	return (FILEBENCH_OK);
 }
+void fdtofullname(int fd, char* filename)
+{
+char proclnk[0xFFF];
+//char filename[0xFFF];
 
+    int fno;
+    ssize_t r;
+
+fno = fd;
+
+ sprintf(proclnk, "/proc/self/fd/%d", fno);
+        r = readlink(proclnk, filename, 0xFFF);
+        if (r < 0)
+        {
+            filebench_log(LOG_INFO,"%s:%d:%d: failed to readlink\n", __FILE__, __LINE__,fno);
+            exit(1);
+        }
+        filename[r] = '\0';
+        filebench_log(LOG_INFO,"### fno -> filename: %d -> %s\n\n",
+                fno, filename);
+free(proclnk);
+
+//return filename;
+
+}
 /*
  * Determines the io buffer or random offset into tf_mem for
  * the IO operation. Returns FILEBENCH_ERROR on errors, FILEBENCH_OK otherwise.
@@ -536,8 +574,13 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 
 		/* select randomly */
 		fb_random64(&fileoffset, wss, iosize, NULL);
-
+		filebench_log(LOG_INFO,
+			    "read file %s , offset %llu "
+			    "io buffer %zd: %s",
+			    avd_get_str(flowop->fo_fileset->fs_name),
+			    (u_longlong_t)fileoffset, iobuf, strerror(errno));
 		(void) flowop_beginop(threadflow, flowop);
+
 		if ((ret = FB_PREAD(fdesc, iobuf,
 		    iosize, (off64_t)fileoffset)) == -1) {
 			(void) flowop_endop(threadflow, flowop, 0);
@@ -2305,7 +2348,9 @@ flowoplib_write(threadflow_t *threadflow, flowop_t *flowop)
 
 		/* select randomly */
 		fb_random64(&fileoffset, wss, iosize, NULL);
-
+		filebench_log(LOG_INFO, "write , "
+			    "offset %llu io buffer %zd:",
+			    (u_longlong_t)fileoffset, iobuf);
 		flowop_beginop(threadflow, flowop);
 		if (FB_PWRITE(fdesc, iobuf,
 		    iosize, (off64_t)fileoffset) == -1) {
